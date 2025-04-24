@@ -116,15 +116,28 @@ plt.savefig(f"zzz shower event{i}x, z plane.png")
 
 #%%
 plt.figure(figsize=(8, 6))
-plt.scatter(x, z,  c=e, cmap="plasma", s=10) 
-plt.colorbar(label="Anzahl der Punkte")
-plt.xlim(np.min(x), np.max(x))
-plt.ylim(np.min(z), np.max(z))
-plt.xlabel("x")
-plt.ylabel("z") 
-plt.title(f"scatter plot{i} (x-y Projektion)")
-plt.grid(True)  
+
+# Normiere die Zeiten auf einen sinnvollen Größenbereich, z.B. [10, 200]
+t_min, t_max = t.min(), t.max()
+sizes = 10 + 190 * (t - t_min) / (t_max - t_min)
+
+# Streu-Plot: x vs. z, Farbe = Energie, Größe = Zeit
+sc = plt.scatter(x, z,
+                 #c=e, cmap="plasma",
+                 s=sizes, alpha=0.7,
+                 edgecolors="none")
+
+#cbar = plt.colorbar(sc)
+cbar.set_label("Energie [MeV]")
+
+plt.xlim(x.min(), x.max())
+plt.ylim(z.min(), z.max())
+plt.xlabel("x [mm]")
+plt.ylabel("z [Layer]")
+plt.title(f"Scatter plot {i} (x–z Projektion)\nPunktgröße ∝ Zeit")
+plt.grid(True)
 plt.tight_layout()
+plt.savefig(f"zzz_shower_event{i}_x_z_plane_time.png")
 plt.show()
 
 
