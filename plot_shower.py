@@ -37,9 +37,31 @@ try:
         #print(f"x.shape = {x.shape}, y.shape = {y.shape}, z.shape = {z.shape}")
 
 except Exception as e:
-    print("❌ Fehler beim Laden der Datei:")
+    print("Fehler beim Laden der Datei:")
     print(e)
     exit()
+
+#%%
+t1 = []
+print(e.max())
+for i in range(0, 19422):
+    x, y, z, e, t = events[i]
+
+    n = 0
+    while n < len(e) and e[n] <= 0.0005:
+        n += 1
+
+    if n < len(t):
+        t1.append(t[n])
+#%%
+plt.figure(figsize=(8, 6))
+plt.hist(events[:,4][events[:,3]>0], bins=100,log=True)
+plt.title("Histogram of Hit Times for Hits with Energy > 0 (MeV)")
+plt.xlabel("Zeit [ns]")
+#plt.xlim(, np.max(t1))
+#plt.ylim(0, 600)
+plt.show()
+
 #%%
 #  Plotten: y-z Projektion mit Energie als Farbe
 plt.figure(figsize=(8, 6))
@@ -59,6 +81,7 @@ plt.tight_layout()
 #  Plot speichern
 output_file = f"zzz shower_event_{i} y-z plane.png"
 plt.savefig(output_file)
+plt.show()
 #%%
 plt.figure(figsize=(8, 6))
 plt.scatter(z ,y, c=e, cmap="hot", s=5)
@@ -198,7 +221,7 @@ def plot_feature_vs_layer(layer, feature, feature_name, unit):
     ax.scatter(layer, feature, s=10, alpha=0.7)
     ax.set_xlabel('Layer')
     ax.set_ylabel(f'{feature_name} [{unit}]')
-    ax.set_title(f'{feature_name} pro Layer')
+    ax.set_title(f'{feature_name} per Layer')
     ax.grid(alpha=0.3)
     plt.tight_layout()
     fn = f"zzz_{feature_name}_vs_layer.png".replace(' ', '_')
@@ -224,19 +247,55 @@ plt.tight_layout()
 plt.savefig("zzz earliest_time_per_shower.png")
 plt.show()
 #%%
+print(shower_start, min(shower_start), max(shower_start))
 plt.figure(figsize=(8,4))
-plt.hist(shower_start, bins=100, edgecolor='black', alpha=0.7)
-plt.xlabel("earliest time [ns]")            
-plt.ylabel("Anzahl Hits")
-plt.title("Histogramm der frühesten Hit-Zeiten")
+plt.hist(shower_start,bins=100)
+n=np.linspace(0,len(shower_start),len(shower_start))
+#plt.plot(shower_start)
+plt.xlabel("n")            
+plt.ylabel("#")
+plt.title("shower_start")
 plt.grid(axis='y', alpha=0.3)
 plt.tight_layout()
 plt.show()
-
 #%%
+path = "/data/dust/user/mmozzani/dataset"
+fn_bottom = "layer_bottom_pos_ecal+hcal.npy"
+fn_top    = "layer_top_pos_ecal+hcal.npy"
+
+# Dateien laden
+bottom = np.load(f"{path}/{fn_bottom}", allow_pickle=False)
+top    = np.load(f"{path}/{fn_top}",    allow_pickle=False)
+
+# Kurz prüfen
+distances = top - bottom
+
+# 6) Ausgabe der Distanzen
+print("distances:", distances)
+z_pos = 0.5 * (bottom + top)  # mm
+
+# 3) Abstand relativ zur ersten Layer
+delta = z_pos - z_pos[0]      # mm
+
+# 4) Lichtgeschwindigkeit in mm/ns
+c_mm_per_ns = 299.792458      # mm pro ns
+
+# 5) Erwartete Zeit pro Layer
+t_c_full = delta / c_mm_per_ns     # ns
+
+# 6) Layer-Indizes
+layers = np.arange(len(t_c_full))
+
+# Ergebnis ausgeben oder zurückgeben
+print("layers:", layers, len(layers))
+#print("t_c [ns]:", t_c, len(t_c))
+#%%
+#t_c_shower = t_c[:len(layers)] 
+
 print('--------------------------------')
 print('--------------------------------')
 candidates = np.where(n_points > 4000)[0]
+print(candidates)
 for i in candidates: 
     n = int(n_points[i])
     event = events[i, :, :n]  # (5, n) → Features x,y,z,e,t
@@ -245,11 +304,14 @@ for i in candidates:
     # Scatter: Layer-Index gegen Zeit
     mask_ecal = (y < 30)
     mask_hcal = (y >= 30)
-    plt.scatter(y[mask_ecal], t[mask_ecal], s=5, color="blue", alpha=0.6, label="GEANT4 hits, Ecal (0-30)")
-    plt.scatter(y[mask_hcal], t[mask_hcal], s=5, color="green", alpha=0.6, label="GEANT4 hits, Hcal (31-78)")
+    plt.scatter(y[mask_ecal], t[mask_ecal], s=2, color="blue", alpha=0.6, label="GEANT4 hits, Ecal (0-30)")
+    plt.scatter(y[mask_hcal], t[mask_hcal], s=2, color="green", alpha=0.6, label="GEANT4 hits, Hcal (31-78)")
     layers      = np.unique(y)
     tmin_layer  = [t[y == lyr].min() for lyr in layers] # hier werden die min Werte für die Zeit pro Layer gespeichert
-    plt.plot(layers, tmin_layer, color="red", lw=2, label="speed-of-light limit")
+    #plt.plot(layers, tmin_layer, color="red", lw=2, label="lowest time per layer")
+    layers = np.unique(y).astype(int)     # wirklich nur die Layer mit Hits
+    t_c    = t_c_full[layers] 
+    plt.plot(layers, t_c, color="red", lw=2, label="c‐limit")
     plt.xlabel("y-layer", fontsize=12)
     plt.ylabel("Time [ns]", fontsize=12)
     plt.xlim(0,78)
@@ -260,7 +322,35 @@ for i in candidates:
     plt.show()
 
 #%%
+candidates = np.where(n_points > 4000)[0]
+layer=12
+for i in candidates: 
+    n = int(n_points[i])
+    event = events[i, :, :n]  # (5, n) → Features x,y,z,e,t
+    x, y, z, e, t = event
+    mask = (z.astype(int) == layer)
+    t_layer = t[mask]
+    # nach Zeit sortieren
+    idx = np.argsort(t_layer)
+    t_sorted = t_layer[idx]
+    hits = np.arange(len(t_sorted))
 
+    # Perzentile berechnen
+    cut50 = int(0.5 * len(t_sorted))
+    cut10 = int(0.9 * len(t_sorted))
+
+    # Plot
+    plt.figure(figsize=(6, 3))
+    plt.scatter(hits, t_sorted, s=20, color='gray')
+    plt.axvline(cut50, color='red',   linestyle='--', label='50 % percentile')
+    plt.axvline(cut10, color='blue',  linestyle='--', label='90 % percentile')
+    plt.xlabel("hit")
+    plt.ylabel("time [ns]")
+    plt.title(f"Time in layer {layer} of one shower")
+    plt.legend(loc='upper left')
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.show()
 
 #%%
 import torch
